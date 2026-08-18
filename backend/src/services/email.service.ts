@@ -20,13 +20,25 @@ interface SendEmailInput {
 }
 
 export async function scheduleEmail(input: ScheduleEmailInput) {
+  const sender = await prisma.sender.findUnique({
+    where: {
+      email: "sender@example.com",
+    },
+  });
+
+  if (!sender) {
+    throw new Error(
+      "Default sender not found. Please create the sender in the database."
+    );
+  }
+
   const email = await prisma.email.create({
     data: {
       recipient: input.recipient,
       subject: input.subject,
       body: input.body,
       scheduledAt: input.scheduledAt,
-      senderId: input.senderId,
+      senderId: sender.id,
       status: "SCHEDULED",
     },
   });
