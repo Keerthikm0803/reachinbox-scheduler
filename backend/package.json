@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "worker": "ts-node-dev --respawn --transpile-only src/queues/email.worker.ts",
-    "build": "tsc",
+    "build": "tsc && node dist/create-sender.js",
     "start": "node dist/server.js"
   },
   "keywords": [],
