@@ -1,0 +1,338 @@
+
+import { useEffect, useState } from "react";
+import "./App.css";
+
+const API_URL = "http://localhost:5000";
+
+interface Email {
+  id: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  scheduledAt: string;
+  sentAt: string | null;
+  status: "SCHEDULED" | "SENT" | "FAILED";
+  error: string | null;
+  previewUrl: string | null;
+}
+
+interface EmailResponse {
+  stats: {
+    total: number;
+    scheduled: number;
+    sent: number;
+    failed: number;
+  };
+  emails: Email[];
+}
+
+function App() {
+  const [recipient, setRecipient] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [senderId, setSenderId] = useState(
+    "cmsyixamd0002u64wv75fkjsq"
+  );
+
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const [stats, setStats] = useState({
+    total: 0,
+    scheduled: 0,
+    sent: 0,
+    failed: 0,
+  });
+
+  const [emails, setEmails] = useState<Email[]>([]);
+  const [fetching, setFetching] = useState(true);
+
+  async function fetchEmails() {
+    try {
+      const response = await fetch(`${API_URL}/api/emails`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch emails");
+      }
+
+      const data: EmailResponse = await response.json();
+
+      setStats(data.stats);
+      setEmails(data.emails);
+    } catch (error) {
+      console.error("Fetch emails error:", error);
+    } finally {
+      setFetching(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchEmails();
+
+    const interval = setInterval(fetchEmails, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  async function scheduleEmail() {
+    setMessage("");
+
+    if (!recipient || !subject || !body || !scheduledAt) {
+      setMessage("Please fill all fields.");
+      return;
+    }
+
+    const selectedDate = new Date(scheduledAt);
+
+    if (selectedDate.getTime() <= Date.now()) {
+      setMessage("Please select a future date and time.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/emails/schedule`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            recipient,
+            subject,
+            body,
+            scheduledAt: selectedDate.toISOString(),
+            senderId,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to schedule email"
+        );
+      }
+
+      setMessage("Email scheduled successfully!");
+
+      setRecipient("");
+      setSubject("");
+      setBody("");
+      setScheduledAt("");
+
+      await fetchEmails();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function formatDate(date: string) {
+    return new Date(date).toLocaleString();
+  }
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div>
+          <h1>ReachInbox Scheduler</h1>
+          <p>Email scheduling dashboard</p>
+        </div>
+
+        <div className="server-status">
+          <span></span>
+          Backend Connected
+        </div>
+      </header>
+
+      <main className="dashboard">
+        <section className="stats">
+          <div className="stat-card">
+            <span>Total Emails</span>
+            <strong>{stats.total}</strong>
+          </div>
+
+          <div className="stat-card">
+            <span>Scheduled</span>
+            <strong>{stats.scheduled}</strong>
+          </div>
+
+          <div className="stat-card">
+            <span>Sent</span>
+            <strong>{stats.sent}</strong>
+          </div>
+
+          <div className="stat-card">
+            <span>Failed</span>
+            <strong>{stats.failed}</strong>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <h2>Schedule an Email</h2>
+              <p>Create a new scheduled email job.</p>
+            </div>
+          </div>
+
+          <div className="form">
+            <label>
+              Recipient
+              <input
+                type="email"
+                placeholder="recipient@example.com"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Subject
+              <input
+                type="text"
+                placeholder="Email subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Message
+              <textarea
+                placeholder="Write your email..."
+                rows={6}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Scheduled Time
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Sender ID
+              <input
+                type="text"
+                value={senderId}
+                onChange={(e) => setSenderId(e.target.value)}
+              />
+            </label>
+
+            <button
+              onClick={scheduleEmail}
+              disabled={loading}
+            >
+              {loading ? "Scheduling..." : "Schedule Email"}
+            </button>
+
+            {message && (
+              <div className="message">
+                {message}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-header">
+            <div>
+              <h2>Recent Email Jobs</h2>
+              <p>Your latest scheduled email activity.</p>
+            </div>
+          </div>
+
+          {fetching ? (
+            <div className="empty-state">
+              <h3>Loading emails...</h3>
+            </div>
+          ) : emails.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">✉</div>
+              <h3>No email jobs yet</h3>
+              <p>
+                Schedule your first email using the form above.
+              </p>
+            </div>
+          ) : (
+            <div className="email-list">
+              {emails.map((email) => (
+                <div
+                  className="email-item"
+                  key={email.id}
+                >
+                  <div className="email-main">
+                    <div className="email-top">
+                      <strong>{email.subject}</strong>
+
+                      <span
+                        className={`status ${email.status.toLowerCase()}`}
+                      >
+                        {email.status}
+                      </span>
+                    </div>
+
+                    <p>
+                      <strong>To:</strong> {email.recipient}
+                    </p>
+
+                    <p className="email-body">
+                      {email.body}
+                    </p>
+
+                    <small>
+                      Scheduled: {formatDate(email.scheduledAt)}
+                    </small>
+
+                    {email.sentAt && (
+                      <small>
+                        {" "}
+                        • Sent: {formatDate(email.sentAt)}
+                      </small>
+                    )}
+
+                    {email.error && (
+                      <p className="error-text">
+                        Error: {email.error}
+                      </p>
+                    )}
+
+                    {email.previewUrl && (
+                      <p>
+                        <a
+                          href={email.previewUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          View Email Preview
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+export default App;
