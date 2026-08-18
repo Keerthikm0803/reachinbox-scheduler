@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { scheduleEmail } from "./services/email.service";
 import { PrismaClient } from "@prisma/client";
+import "./queues/email.worker";
 
 const prisma = new PrismaClient();
 
