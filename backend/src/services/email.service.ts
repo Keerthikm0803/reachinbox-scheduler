@@ -1,6 +1,7 @@
+
 import { emailQueue } from "../queues/email.queue";
 import { PrismaClient } from "@prisma/client";
-import { Resend } from "resend"; 
+import { Resend } from "resend";
 
 const prisma = new PrismaClient();
 
@@ -19,7 +20,13 @@ interface SendEmailInput {
   senderEmail: string;
 }
 
-export async function scheduleEmail(input: ScheduleEmailInput) {
+/* =========================
+   SINGLE EMAIL SCHEDULING
+========================= */
+
+export async function scheduleEmail(
+  input: ScheduleEmailInput
+) {
   const sender = await prisma.sender.findUnique({
     where: {
       email: "sender@example.com",
@@ -73,25 +80,86 @@ export async function scheduleEmail(input: ScheduleEmailInput) {
   return email;
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+/* =========================
+   BATCH EMAIL SCHEDULING
+========================= */
 
-export async function sendEmail(input: SendEmailInput) {
+export async function scheduleEmailBatch(input: {
+  recipients: string[];
+  subject: string;
+  body: string;
+  scheduledAt: Date;
+  senderId: string;
+  delayBetweenEmails: number;
+}) {
+  const results = [];
+
+  for (
+    let index = 0;
+    index < input.recipients.length;
+    index++
+  ) {
+    const recipient =
+      input.recipients[index].trim();
+
+    if (!recipient) {
+      continue;
+    }
+
+    const scheduledTime = new Date(
+      input.scheduledAt.getTime() +
+        index * input.delayBetweenEmails
+    );
+
+    const email = await scheduleEmail({
+      recipient,
+      subject: input.subject,
+      body: input.body,
+      scheduledAt: scheduledTime,
+      senderId: input.senderId,
+    });
+
+    results.push(email);
+  }
+
+  return results;
+}
+
+/* =========================
+   SEND EMAIL USING RESEND
+========================= */
+
+const resend = new Resend(
+  process.env.RESEND_API_KEY
+);
+
+export async function sendEmail(
+  input: SendEmailInput
+) {
   const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+    process.env.RESEND_FROM_EMAIL ||
+    "onboarding@resend.dev";
 
-  const { data, error } = await resend.emails.send({
-    from: fromEmail,
-    to: [input.to],
-    subject: input.subject,
-    text: input.body,
-  });
+  const { data, error } =
+    await resend.emails.send({
+      from: fromEmail,
+      to: [input.to],
+      subject: input.subject,
+      text: input.body,
+    });
 
   if (error) {
-    console.error("Resend error:", error);
+    console.error(
+      "Resend error:",
+      error
+    );
+
     throw new Error(error.message);
   }
 
-  console.log(`Email sent successfully: ${data?.id}`);
+  console.log(
+    `Email sent successfully: ${data?.id}`
+  );
 
   return {
     messageId: data?.id || null,
