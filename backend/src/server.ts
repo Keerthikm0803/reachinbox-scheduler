@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -12,6 +11,9 @@ import "./queues/email.worker";
 const prisma = new PrismaClient();
 
 const app = express();
+
+// Required for secure cookies behind Render's proxy
+app.set("trust proxy", 1);
 
 const FRONTEND_URL =
   process.env.FRONTEND_URL ||
