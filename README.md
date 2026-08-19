@@ -1,29 +1,44 @@
 # ReachInbox Email Scheduler
 
-A production-oriented email scheduling service and dashboard built for the ReachInbox hiring assignment.
+A production-oriented full-stack email scheduling service and dashboard built for the ReachInbox hiring assignment.
 
-The system accepts email scheduling requests through an Express API, stores email jobs in PostgreSQL using Prisma, schedules jobs using BullMQ and Redis, and processes them asynchronously through a dedicated worker. Emails are sent using Nodemailer with Ethereal SMTP for testing and preview purposes.
+The application allows users to schedule emails for a future date and time. Email jobs are stored in PostgreSQL, scheduled using BullMQ and Redis, and processed asynchronously by an email worker. Email delivery is handled through the Resend API.
 
-## Features
+## 🚀 Live Demo
+
+**Hosted Application:** https://reachinbox-frontend-pv7w.onrender.com
+
+**Backend API:** https://reachinbox-backend-30q7.onrender.com
+
+**GitHub Repository:** https://github.com/Keerthikm0803/reachinbox-scheduler
+
+**Demo Video:** https://www.loom.com/share/ffb4eb862c5549fdadeabe157c806676
+
+---
+
+## ✨ Features
 
 * Schedule emails for a future date and time
 * React-based email scheduling dashboard
 * Express REST API
-* PostgreSQL database with Prisma ORM
+* PostgreSQL database
+* Prisma ORM
 * BullMQ persistent job queue
-* Redis-backed job scheduling
+* Redis-backed delayed job scheduling
 * Dedicated email worker
-* Concurrent job processing
+* Concurrent email processing
+* Configurable worker concurrency
 * Email status tracking
 * Scheduled, sent, and failed email statistics
-* Retry/error handling through the worker
-* Redis-based rate limiting
-* Ethereal SMTP integration
-* Email preview URLs
 * Automatic dashboard refresh
-* Docker Compose configuration for supporting services
+* Redis-based rate limiting
+* Resend API email delivery
+* Email error tracking
+* Email attempt tracking
+* Docker Compose support for local infrastructure
+* Production deployment using Render
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 ### Frontend
 
@@ -35,89 +50,129 @@ The system accepts email scheduling requests through an Express API, stores emai
 ### Backend
 
 * Node.js
-* Express
+* Express.js
 * TypeScript
 * Prisma ORM
+
+### Database
+
 * PostgreSQL
 
-### Queue & Infrastructure
+### Queue & Scheduling
 
-* Redis
 * BullMQ
+* Redis
+
+### Email Delivery
+
+* Resend API
+
+### Deployment
+
+* Render
+* GitHub
+
+### Local Infrastructure
+
+* Docker
 * Docker Compose
 
-### Email
+---
 
-* Nodemailer
-* Ethereal Email SMTP
-
-## Architecture
+# 🏗️ Architecture
 
 ```text
-                     ┌──────────────────────┐
-                     │      React UI        │
-                     │   Vite + TypeScript  │
-                     └──────────┬───────────┘
-                                │
-                                │ HTTP REST API
-                                ▼
-                     ┌──────────────────────┐
-                     │   Express Backend    │
-                     │      Port 5000       │
-                     └──────────┬───────────┘
-                                │
-                 ┌──────────────┴──────────────┐
-                 │                             │
-                 ▼                             ▼
-       ┌──────────────────┐          ┌──────────────────┐
-       │    PostgreSQL    │          │      BullMQ      │
-       │      Prisma      │          │   Job Scheduler  │
-       └──────────────────┘          └────────┬─────────┘
-                                               │
-                                               ▼
-                                      ┌──────────────────┐
-                                      │      Redis       │
-                                      │ Queue + Rate     │
-                                      │     Limiting     │
-                                      └────────┬─────────┘
-                                               │
-                                               ▼
-                                      ┌──────────────────┐
-                                      │  Email Worker    │
-                                      │    Concurrency   │
-                                      └────────┬─────────┘
-                                               │
-                                               ▼
-                                      ┌──────────────────┐
-                                      │    Nodemailer    │
-                                      │ Ethereal SMTP    │
-                                      └──────────────────┘
+                         ┌──────────────────────┐
+                         │      React UI        │
+                         │   Vite + TypeScript  │
+                         └──────────┬───────────┘
+                                    │
+                                    │ HTTP REST API
+                                    ▼
+                         ┌──────────────────────┐
+                         │   Express Backend    │
+                         │      Node.js         │
+                         └──────────┬───────────┘
+                                    │
+                    ┌───────────────┴────────────────┐
+                    │                                │
+                    ▼                                ▼
+          ┌──────────────────┐             ┌──────────────────┐
+          │    PostgreSQL    │             │      BullMQ      │
+          │     Prisma       │             │  Delayed Queue   │
+          └──────────────────┘             └────────┬─────────┘
+                                                    │
+                                                    ▼
+                                           ┌──────────────────┐
+                                           │      Redis       │
+                                           │ Queue + Rate     │
+                                           │     Limiting     │
+                                           └────────┬─────────┘
+                                                    │
+                                                    ▼
+                                           ┌──────────────────┐
+                                           │   Email Worker   │
+                                           │   Concurrency 5  │
+                                           └────────┬─────────┘
+                                                    │
+                                                    ▼
+                                           ┌──────────────────┐
+                                           │    Resend API    │
+                                           └────────┬─────────┘
+                                                    │
+                                                    ▼
+                                               Recipient
 ```
 
-## Email Scheduling Flow
+---
 
-1. The user enters the recipient, subject, message, scheduled time, and sender ID in the React dashboard.
+# 📧 Email Scheduling Flow
+
+1. The user enters the recipient, subject, message, scheduled time, and sender information in the React dashboard.
 2. The frontend sends a `POST` request to `/api/emails/schedule`.
-3. The backend validates the request and scheduled date.
-4. The email record is stored in PostgreSQL using Prisma.
-5. A BullMQ job is created with the email ID and scheduled execution time.
-6. Redis stores and manages the BullMQ job.
-7. When the scheduled time is reached, the worker receives the job.
-8. The worker loads the email information from PostgreSQL.
-9. The worker sends the email using Nodemailer and Ethereal SMTP.
-10. The email record is updated with its final status.
-11. A preview URL is stored when available.
-12. The dashboard periodically refreshes and displays the latest status.
+3. The Express backend validates the request.
+4. The scheduled date is validated to ensure it is in the future.
+5. The email record is stored in PostgreSQL using Prisma.
+6. A delayed BullMQ job is created with the email ID.
+7. Redis stores and manages the delayed job.
+8. At the scheduled time, the email worker receives the job.
+9. The worker retrieves the email and sender information from PostgreSQL.
+10. Redis rate limiting is checked before sending.
+11. The worker sends the email through the Resend API.
+12. The email record is updated to `SENT`.
+13. The sent timestamp and message ID are stored.
+14. If delivery fails, the email is marked as `FAILED` and the error is stored.
+15. The dashboard refreshes and displays the latest email status.
 
-## API Endpoints
+### Successful Flow
 
-### Health Check
+```text
+SCHEDULED
+    ↓
+BullMQ Delayed Job
+    ↓
+Redis
+    ↓
+Email Worker
+    ↓
+Rate Limit Check
+    ↓
+Resend API
+    ↓
+Email Delivered
+    ↓
+SENT
+```
+
+---
+
+# 🔌 API Endpoints
+
+## Health Check
 
 ```http
 GET /health
 ```
-
-Returns the current backend status.
 
 Example response:
 
@@ -128,25 +183,25 @@ Example response:
 }
 ```
 
-### Schedule Email
+## Schedule Email
 
 ```http
 POST /api/emails/schedule
 ```
 
-Request body:
+Example request:
 
 ```json
 {
   "recipient": "test@example.com",
   "subject": "Test Email",
   "body": "Hello from ReachInbox Scheduler!",
-  "scheduledAt": "2026-08-18T18:30:00.000Z",
+  "scheduledAt": "2026-08-19T10:39:00.000Z",
   "senderId": "your-sender-id"
 }
 ```
 
-### Get Email Jobs
+## Get Email Jobs
 
 ```http
 GET /api/emails
@@ -154,50 +209,81 @@ GET /api/emails
 
 Returns recent email jobs and dashboard statistics.
 
-Example response structure:
+Example response:
 
 ```json
 {
   "stats": {
-    "total": 12,
-    "scheduled": 1,
-    "sent": 9,
-    "failed": 2
+    "total": 10,
+    "scheduled": 2,
+    "sent": 7,
+    "failed": 1
   },
   "emails": []
 }
 ```
 
-## Database Design
+---
+
+# 🗄️ Database Design
 
 The application uses PostgreSQL with Prisma ORM.
 
-### User
+## User
 
 Stores user information and owns sender accounts.
 
-### Sender
+Fields include:
+
+* `id`
+* `googleId`
+* `name`
+* `email`
+* `avatar`
+* `createdAt`
+* `updatedAt`
+
+## Sender
 
 Represents an email sender associated with a user.
 
-### Email
+Fields include:
 
-Stores:
+* `id`
+* `email`
+* `name`
+* `userId`
+* `createdAt`
+* `updatedAt`
 
-* Recipient
-* Subject
-* Body
-* Scheduled time
-* Sent time
-* Status
-* BullMQ job ID
-* Attempt count
-* Error information
-* Email preview URL
-* Sender relationship
-* Creation/update timestamps
+## Email
 
-### Email Status
+Stores scheduled and processed email jobs.
+
+Fields include:
+
+* `id`
+* `recipient`
+* `subject`
+* `body`
+* `scheduledAt`
+* `sentAt`
+* `status`
+* `jobId`
+* `attempts`
+* `error`
+* `previewUrl`
+* `senderId`
+* `createdAt`
+* `updatedAt`
+
+Indexes are used on frequently queried fields:
+
+* `status`
+* `scheduledAt`
+* `senderId`
+
+## Email Status
 
 ```text
 SCHEDULED
@@ -206,75 +292,120 @@ SENT
 FAILED
 ```
 
-Indexes are used on frequently queried fields such as:
+---
 
-* `status`
-* `scheduledAt`
-* `senderId`
+# 🔄 Queue Architecture
 
-## Queue Architecture
+BullMQ is used instead of cron jobs for persistent email scheduling.
 
-BullMQ is used instead of cron jobs for persistent scheduling.
+When an email is scheduled, the backend creates a delayed BullMQ job:
 
-When an email is scheduled, the backend creates a delayed BullMQ job.
+```text
+Email Request
+     ↓
+PostgreSQL
+     ↓
+BullMQ
+     ↓
+Redis
+     ↓
+Delayed Until Scheduled Time
+     ↓
+Email Worker
+```
 
-The worker continuously listens for available jobs and processes them asynchronously.
+This allows the API to respond immediately without keeping an HTTP request open until the scheduled email time.
 
-This separates API requests from email delivery and prevents the API server from having to wait for scheduled jobs.
+---
 
-## Worker Concurrency
+# ⚙️ Worker Concurrency
 
 The email worker supports concurrent processing.
 
-The current worker configuration runs with:
+The current configuration uses:
 
 ```text
 Concurrency: 5
 ```
 
-This allows multiple email jobs to be processed in parallel while still controlling the amount of concurrent work.
+This allows up to five email jobs to be processed concurrently.
 
-## Rate Limiting
+The concurrency can be configured using:
+
+```env
+WORKER_CONCURRENCY=5
+```
+
+---
+
+# 🚦 Rate Limiting
 
 Redis is also used for email sending rate limiting.
 
-This helps prevent the system from sending an excessive number of emails within a short period.
+Before sending an email, the worker checks whether the sender is currently allowed to send.
 
-The rate-limit service is implemented separately from the main email service so that queue processing and sending limits can be managed independently.
+If the rate limit is reached, the job can be delayed and processed again later.
 
-## Error Handling
+This helps prevent excessive email sending within a short period.
 
-The system handles errors during:
+---
+
+# 📩 Email Delivery
+
+The production deployment uses the Resend API for email delivery.
+
+The worker sends the email information to Resend:
+
+```text
+Recipient
+Subject
+Message
+     ↓
+Resend API
+     ↓
+Email Delivery
+```
+
+The Resend API key is stored securely as a Render environment variable and is never committed to GitHub.
+
+---
+
+# ❌ Error Handling
+
+The application handles errors during:
 
 * Request validation
-* Date validation
-* Database operations
-* Queue processing
-* SMTP/email delivery
+* Scheduled date validation
+* PostgreSQL operations
+* Prisma operations
+* BullMQ job processing
+* Redis operations
+* Rate limiting
+* Email delivery
 
-Failed jobs are recorded with:
+Failed emails store:
 
 * `FAILED` status
 * Error message
-* Attempt information
+* Attempt count
 
-This allows failures to be visible from the dashboard.
-
-## Email Preview
-
-The application uses Ethereal Email for development/testing.
-
-Ethereal provides a preview URL for successfully sent test emails.
-
-The dashboard displays:
+Example:
 
 ```text
-View Email Preview
+SCHEDULED
+    ↓
+Worker
+    ↓
+Resend API Error
+    ↓
+FAILED
+    ↓
+Error stored in PostgreSQL
 ```
 
-for emails where a preview URL is available.
+---
 
-## Project Structure
+# 📁 Project Structure
 
 ```text
 reachinbox-scheduler/
@@ -296,10 +427,11 @@ reachinbox-scheduler/
 │   │   │   ├── email.service.ts
 │   │   │   └── rate-limit.service.ts
 │   │   │
+│   │   ├── create-sender.ts
 │   │   └── server.ts
 │   │
-│   ├── create-sender.ts
 │   ├── package.json
+│   ├── package-lock.json
 │   ├── prisma.config.ts
 │   └── tsconfig.json
 │
@@ -318,7 +450,9 @@ reachinbox-scheduler/
 └── README.md
 ```
 
-## Prerequisites
+---
+
+# 💻 Prerequisites
 
 Install the following:
 
@@ -326,9 +460,37 @@ Install the following:
 * npm
 * PostgreSQL
 * Redis
-* Docker Desktop (optional if Redis/PostgreSQL are run through Docker)
+* Docker Desktop
+* Git
 
-## Environment Variables
+Docker can be used to run PostgreSQL and Redis locally.
+
+---
+
+# 🐳 Local Infrastructure
+
+Start the supporting services:
+
+```bash
+docker compose up -d
+```
+
+Check running containers:
+
+```bash
+docker ps
+```
+
+The expected services include:
+
+```text
+PostgreSQL
+Redis
+```
+
+---
+
+# 🔐 Environment Variables
 
 Create a `.env` file inside the `backend` directory.
 
@@ -337,18 +499,19 @@ Example:
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/reachinbox"
 REDIS_URL="redis://localhost:6379"
-
 PORT=5000
-
-SMTP_HOST=smtp.ethereal.email
-SMTP_PORT=587
-SMTP_USER=your_ethereal_username
-SMTP_PASS=your_ethereal_password
+RESEND_API_KEY="your_resend_api_key"
+RESEND_FROM_EMAIL="onboarding@resend.dev"
+WORKER_CONCURRENCY=5
 ```
 
-Do not commit the real `.env` file to GitHub.
+Never commit the real `.env` file to GitHub.
 
-## Installation
+Production environment variables are configured securely through Render.
+
+---
+
+# 📦 Installation
 
 Clone the repository:
 
@@ -357,20 +520,20 @@ git clone https://github.com/Keerthikm0803/reachinbox-scheduler.git
 cd reachinbox-scheduler
 ```
 
-### Backend
+## Backend
 
 ```bash
 cd backend
 npm install
 ```
 
-Generate the Prisma client:
+Generate Prisma client:
 
 ```bash
 npx prisma generate
 ```
 
-Run database migrations:
+Run migrations:
 
 ```bash
 npx prisma migrate deploy
@@ -382,13 +545,7 @@ Start the backend:
 npm run dev
 ```
 
-The API will run at:
-
-```text
-http://localhost:5000
-```
-
-### Start the Email Worker
+## Email Worker
 
 Open another terminal:
 
@@ -397,14 +554,14 @@ cd backend
 npm run worker
 ```
 
-The worker should display:
+Expected output:
 
 ```text
 Email worker started with concurrency: 5
 Redis connected
 ```
 
-### Frontend
+## Frontend
 
 Open another terminal:
 
@@ -420,19 +577,71 @@ The frontend will normally be available at:
 http://localhost:5173
 ```
 
-## Running with Docker
+---
 
-The project includes a `docker-compose.yml` file for supporting infrastructure.
+# 🧪 Testing
 
-Run:
+The implementation was tested using scheduled emails through the deployed dashboard.
 
-```bash
-docker compose up -d
+Test scenarios include:
+
+* Successful email scheduling
+* Future-date validation
+* BullMQ delayed job execution
+* Redis queue processing
+* Concurrent email processing
+* Redis rate limiting
+* Resend API delivery
+* Failed email handling
+* Dashboard status updates
+* Email statistics
+* Production deployment
+
+### Successful Production Test
+
+```text
+SCHEDULED
+    ↓
+BullMQ
+    ↓
+Redis
+    ↓
+Email Worker
+    ↓
+Resend API
+    ↓
+SENT
 ```
 
-Verify the required services are running before starting the backend and worker.
+A production test successfully scheduled an email for `10:39:00 AM` and the dashboard recorded it as `SENT` at `10:39:01 AM`.
 
-## Dashboard
+---
+
+# 🔒 Security
+
+Sensitive credentials are stored using environment variables.
+
+The repository does not contain:
+
+* Resend API keys
+* Database passwords
+* Redis credentials
+* Private API keys
+* Production environment configuration
+
+The `.env` file should never be committed to GitHub.
+
+---
+
+# ☁️ Deployment
+
+The application is deployed on Render.
+
+The production deployment runs the Express backend and email worker with PostgreSQL, Redis, and Resend API integration.
+
+---
+
+# 📊 Dashboard
 
 The dashboard provides:
 
@@ -441,84 +650,67 @@ The dashboard provides:
 * Sent email count
 * Failed email count
 * Email scheduling form
-* Recent email jobs
-* Email status
+* Recipient information
+* Subject
+* Message
 * Scheduled timestamp
 * Sent timestamp
-* Error details
-* Ethereal preview links
+* Email status
+* Error information
+* Recent email jobs
 
-The dashboard automatically refreshes email job information periodically.
+The dashboard automatically refreshes email information periodically.
 
-## Testing
+---
 
-The implementation was tested using scheduled emails through the dashboard.
+# 🎯 Assignment
 
-Test scenarios include:
+This project was developed as part of the ReachInbox Full-stack Email Job Scheduler hiring assignment.
 
-* Successful email scheduling
-* Delayed email execution
-* Multiple concurrent email jobs
-* Redis rate limiting
-* Ethereal SMTP delivery
-* Failed email handling
-* Dashboard status updates
-* Email preview generation
+The implementation demonstrates:
 
-Example successful flow:
+* API-based email scheduling
+* Persistent job scheduling using BullMQ
+* Redis-backed queues
+* Asynchronous email processing
+* Worker concurrency
+* Rate limiting
+* PostgreSQL persistence
+* Prisma ORM
+* Email status tracking
+* Resend email delivery
+* React dashboard
+* Production deployment
 
-```text
-SCHEDULED
-    ↓
-BullMQ delayed job
-    ↓
-Redis
-    ↓
-Email Worker
-    ↓
-Nodemailer
-    ↓
-Ethereal SMTP
-    ↓
-SENT
-```
+The scheduler uses BullMQ and Redis instead of cron jobs for delayed email execution.
 
-## Security
+---
 
-Sensitive environment variables are excluded from Git using `.gitignore`.
+# 🚀 Future Improvements
 
-The repository does not contain:
+Possible future improvements include:
 
-* SMTP passwords
-* Database passwords
-* Redis credentials
-* Private API keys
-* Local environment configuration
+* User authentication
+* Google OAuth integration
+* Multiple sender accounts
+* Email templates
+* Bulk email scheduling
+* Email cancellation
+* Job retry configuration
+* Advanced analytics
+* Delivery tracking
+* Bounce handling
+* Open and click tracking
+* Improved rate-limit configuration
+* Dedicated production worker service
 
-## Demo
+---
 
-Assignment demonstration video:
-
-**Loom : **https://www.loom.com/share/ffb4eb862c5549fdadeabe157c806676
-
-## Hosted Assignment
-
-**Live Application:** Add your deployed application URL here.
-
-## GitHub Repository
-
-**Repository:** https://github.com/Keerthikm0803/reachinbox-scheduler
-
-## Assignment
-
-This project was developed as part of the ReachInbox Full-stack Email Job Scheduler assignment.
-
-The implementation demonstrates asynchronous email scheduling using BullMQ and Redis without relying on cron jobs.
-
-## Author
+# 👨‍💻 Author
 
 **Keerthi Km**
 
 B.Tech Computer Science & Engineering (AI & ML)
 
 2027 Batch
+
