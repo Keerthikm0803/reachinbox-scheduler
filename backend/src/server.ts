@@ -1,6 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import session from "express-session";
+import passport from "./auth/google";
+
 import { scheduleEmail } from "./services/email.service";
 import { PrismaClient } from "@prisma/client";
 import "./queues/email.worker";
@@ -9,8 +12,41 @@ const prisma = new PrismaClient();
 
 const app = express();
 
-app.use(cors());
+const FRONTEND_URL =
+  process.env.FRONTEND_URL ||
+  "http://localhost:5173";
+
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true,
+  })
+);
+
 app.use(express.json());
+
+app.use(
+  session({
+    secret:
+      process.env.SESSION_SECRET ||
+      "development-session-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+/* =========================
+   HEALTH CHECK
+========================= */
 
 app.get("/health", (_req, res) => {
   res.json({
@@ -18,6 +54,72 @@ app.get("/health", (_req, res) => {
     message: "ReachInbox backend is running",
   });
 });
+
+/* =========================
+   GOOGLE LOGIN
+========================= */
+
+app.get(
+  "/api/auth/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+  })
+);
+
+app.get(
+  "/api/auth/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: `${FRONTEND_URL}/?login=failed`,
+  }),
+  (_req, res) => {
+    res.redirect(FRONTEND_URL);
+  }
+);
+
+app.get("/api/auth/me", (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({
+      authenticated: false,
+      user: null,
+    });
+  }
+
+  return res.json({
+    authenticated: true,
+    user: req.user,
+  });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  req.logout((error) => {
+    if (error) {
+      console.error("Logout error:", error);
+
+      return res.status(500).json({
+        message: "Logout failed",
+      });
+    }
+
+    req.session.destroy((sessionError) => {
+      if (sessionError) {
+        console.error(
+          "Session destroy error:",
+          sessionError
+        );
+      }
+
+      res.clearCookie("connect.sid");
+
+      return res.json({
+        message: "Logged out successfully",
+      });
+    });
+  });
+});
+
+/* =========================
+   EMAIL SCHEDULING
+========================= */
 
 app.post("/api/emails/schedule", async (req, res) => {
   try {
@@ -77,6 +179,10 @@ app.post("/api/emails/schedule", async (req, res) => {
   }
 });
 
+/* =========================
+   EMAIL DASHBOARD
+========================= */
+
 app.get("/api/emails", async (_req, res) => {
   try {
     const [emails, total, scheduled, sent, failed] =
@@ -130,8 +236,14 @@ app.get("/api/emails", async (_req, res) => {
   }
 });
 
+/* =========================
+   START SERVER
+========================= */
+
 const PORT = Number(process.env.PORT || 5000);
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Backend server running on port ${PORT}`);
+  console.log(
+    `Backend server running on port ${PORT}`
+  );
 });
