@@ -11,7 +11,6 @@ import "./queues/email.worker";
 const prisma = new PrismaClient();
 
 const app = express();
-
 const FRONTEND_URL =
   process.env.FRONTEND_URL ||
   "http://localhost:5173";
@@ -33,11 +32,11 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
-    },
+  secure: process.env.NODE_ENV === "production",
+  httpOnly: true,
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 24 * 60 * 60 * 1000,
+},
   })
 );
 
