@@ -4,6 +4,9 @@ A production-oriented full-stack email scheduling service and dashboard built fo
 
 The application allows users to schedule emails for a future date and time. Email jobs are stored in PostgreSQL, scheduled using BullMQ and Redis, and processed asynchronously by an email worker. Email delivery is handled through the Resend API.
 
+NOTE:
+Testing Note: Please use keerthikm0803@gmail.com as the recipient. Resend's current testing environment only allows delivery to the account owner's email.
+
 ## 🚀 Live Demo
 
 **Hosted Application:** https://reachinbox-frontend-pv7w.onrender.com
