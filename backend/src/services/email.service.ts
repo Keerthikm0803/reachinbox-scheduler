@@ -1,6 +1,6 @@
 import { emailQueue } from "../queues/email.queue";
 import { PrismaClient } from "@prisma/client";
-import nodemailer from "nodemailer";
+import { Resend } from "resend"; 
 
 const prisma = new PrismaClient();
 
@@ -73,30 +73,28 @@ export async function scheduleEmail(input: ScheduleEmailInput) {
   return email;
 }
 
-export async function sendEmail(input: SendEmailInput) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-  const info = await transporter.sendMail({
-    from: `"${input.senderEmail}" <${process.env.SMTP_USER}>`,
-    to: input.to,
+export async function sendEmail(input: SendEmailInput) {
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+  const { data, error } = await resend.emails.send({
+    from: fromEmail,
+    to: [input.to],
     subject: input.subject,
     text: input.body,
   });
 
-  console.log(
-    `Email sent successfully: ${info.messageId}`
-  );
+  if (error) {
+    console.error("Resend error:", error);
+    throw new Error(error.message);
+  }
+
+  console.log(`Email sent successfully: ${data?.id}`);
 
   return {
-    messageId: info.messageId,
-    previewUrl: nodemailer.getTestMessageUrl(info) || null,
+    messageId: data?.id || null,
+    previewUrl: null,
   };
 }
