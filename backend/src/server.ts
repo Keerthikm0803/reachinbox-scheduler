@@ -2,7 +2,9 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import session from "express-session";
+import { RedisStore } from "connect-redis";
 import passport from "./auth/google";
+import { redisConnection } from "./config/redis";
 
 import { scheduleEmail } from "./services/email.service";
 import { PrismaClient } from "@prisma/client";
@@ -26,21 +28,22 @@ app.use(express.json());
 
 app.use(
   session({
+    store: new RedisStore({
+      client: redisConnection,
+    }),
     secret:
       process.env.SESSION_SECRET ||
       "development-session-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
-  secure: true,
-  httpOnly: true,
-  sameSite: "none",
-  maxAge: 24 * 60 * 60 * 1000,
-},
-    
+      secure: true,
+      httpOnly: true,
+      sameSite: "none",
+      maxAge: 24 * 60 * 60 * 1000,
+    },
   })
 );
-
 app.use(passport.initialize());
 app.use(passport.session());
 
