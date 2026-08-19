@@ -26,7 +26,7 @@ interface EmailResponse {
 }
 
 function App() {
-  const [recipient, setRecipient] = useState("");
+  const [recipient, setRecipient] = useState("keerthikm0803@gmail.com");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
@@ -186,15 +186,24 @@ function App() {
           </div>
 
           <div className="form">
-            <label>
-              Recipient
-              <input
-                type="email"
-                placeholder="recipient@example.com"
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-              />
-            </label>
+           <label>
+  Recipient
+
+  <small className="testing-note">
+    For the deployed demo, please use{" "}
+    <strong>keerthikm0803@gmail.com</strong>.
+    <br />
+    Resend's testing environment currently restricts email
+    delivery to the account owner's email.
+  </small>
+
+  <input
+    type="email"
+    placeholder="keerthikm0803@gmail.com"
+    value={recipient}
+    onChange={(e) => setRecipient(e.target.value)}
+  />
+</label>
 
             <label>
               Subject
