@@ -15,7 +15,7 @@ Testing Note: Please use keerthikm0803@gmail.com as the recipient. Resend's curr
 
 **GitHub Repository:** https://github.com/Keerthikm0803/reachinbox-scheduler
 
-**Demo Video:** 
+**Demo Video:** https://www.loom.com/share/eeb7a1ac31ea45f6a0c819d5e7bf9a65
 
 ---
 
