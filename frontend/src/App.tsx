@@ -1,8 +1,15 @@
-
 import { useEffect, useState } from "react";
 import "./App.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+}
+
 interface Email {
   id: string;
   recipient: string;
@@ -26,7 +33,12 @@ interface EmailResponse {
 }
 
 function App() {
-  const [recipient, setRecipient] = useState("keerthikm0803@gmail.com");
+  const [user, setUser] = useState<User | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const [recipient, setRecipient] = useState(
+    "keerthikm0803@gmail.com"
+  );
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
@@ -47,9 +59,50 @@ function App() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [fetching, setFetching] = useState(true);
 
+  async function checkAuth() {
+    try {
+      const response = await fetch(
+        `${API_URL}/api/auth/me`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error("Authentication check error:", error);
+      setUser(null);
+    } finally {
+      setCheckingAuth(false);
+    }
+  }
+
+  async function logout() {
+    try {
+      await fetch(`${API_URL}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      setUser(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  }
+
   async function fetchEmails() {
     try {
-      const response = await fetch(`${API_URL}/api/emails`);
+      const response = await fetch(
+        `${API_URL}/api/emails`,
+        {
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch emails");
@@ -67,12 +120,18 @@ function App() {
   }
 
   useEffect(() => {
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
     fetchEmails();
 
     const interval = setInterval(fetchEmails, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   async function scheduleEmail() {
     setMessage("");
@@ -96,6 +155,7 @@ function App() {
         `${API_URL}/api/emails/schedule`,
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -119,7 +179,7 @@ function App() {
 
       setMessage("Email scheduled successfully!");
 
-      setRecipient("");
+      setRecipient("keerthikm0803@gmail.com");
       setSubject("");
       setBody("");
       setScheduledAt("");
@@ -140,6 +200,81 @@ function App() {
     return new Date(date).toLocaleString();
   }
 
+  if (checkingAuth) {
+    return (
+      <div className="app">
+        <div className="empty-state">
+          <h2>Loading ReachInbox Scheduler...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="app">
+        <main
+          className="dashboard"
+          style={{
+            maxWidth: "500px",
+            margin: "100px auto",
+          }}
+        >
+          <section className="card">
+            <div
+              className="card-header"
+              style={{
+                textAlign: "center",
+              }}
+            >
+              <div style={{ width: "100%" }}>
+                <h1>ReachInbox Scheduler</h1>
+
+                <p>
+                  Sign in to access your email scheduling
+                  dashboard.
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                textAlign: "center",
+                padding: "30px 10px",
+              }}
+            >
+              <button
+                onClick={() => {
+                  window.location.href =
+                    `${API_URL}/api/auth/google`;
+                }}
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Continue with Google
+              </button>
+
+              <p
+                style={{
+                  marginTop: "18px",
+                  fontSize: "13px",
+                  opacity: 0.7,
+                }}
+              >
+                Secure authentication powered by Google
+              </p>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -148,9 +283,39 @@ function App() {
           <p>Email scheduling dashboard</p>
         </div>
 
-        <div className="server-status">
-          <span></span>
-          Backend Connected
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+          }}
+        >
+          {user.avatar && (
+            <img
+              src={user.avatar}
+              alt={user.name}
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+              }}
+            />
+          )}
+
+          <div>
+            <strong>{user.name}</strong>
+            <br />
+            <small>{user.email}</small>
+          </div>
+
+          <button onClick={logout}>
+            Logout
+          </button>
+
+          <div className="server-status">
+            <span></span>
+            Backend Connected
+          </div>
         </div>
       </header>
 
@@ -186,24 +351,30 @@ function App() {
           </div>
 
           <div className="form">
-           <label>
-  Recipient
+            <label>
+              Recipient
 
-  <small className="testing-note">
-    For the deployed demo, please use{" "}
-    <strong>keerthikm0803@gmail.com</strong>.
-    <br />
-    Resend's testing environment currently restricts email
-    delivery to the account owner's email.
-  </small>
+              <small className="testing-note">
+                For the deployed demo, please use{" "}
+                <strong>
+                  keerthikm0803@gmail.com
+                </strong>
+                .
+                <br />
+                Resend's testing environment currently
+                restricts email delivery to the account
+                owner's email.
+              </small>
 
-  <input
-    type="email"
-    placeholder="keerthikm0803@gmail.com"
-    value={recipient}
-    onChange={(e) => setRecipient(e.target.value)}
-  />
-</label>
+              <input
+                type="email"
+                placeholder="keerthikm0803@gmail.com"
+                value={recipient}
+                onChange={(e) =>
+                  setRecipient(e.target.value)
+                }
+              />
+            </label>
 
             <label>
               Subject
@@ -211,7 +382,9 @@ function App() {
                 type="text"
                 placeholder="Email subject"
                 value={subject}
-                onChange={(e) => setSubject(e.target.value)}
+                onChange={(e) =>
+                  setSubject(e.target.value)
+                }
               />
             </label>
 
@@ -221,7 +394,9 @@ function App() {
                 placeholder="Write your email..."
                 rows={6}
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
+                onChange={(e) =>
+                  setBody(e.target.value)
+                }
               />
             </label>
 
@@ -230,7 +405,9 @@ function App() {
               <input
                 type="datetime-local"
                 value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
+                onChange={(e) =>
+                  setScheduledAt(e.target.value)
+                }
               />
             </label>
 
@@ -239,7 +416,9 @@ function App() {
               <input
                 type="text"
                 value={senderId}
-                onChange={(e) => setSenderId(e.target.value)}
+                onChange={(e) =>
+                  setSenderId(e.target.value)
+                }
               />
             </label>
 
@@ -247,7 +426,9 @@ function App() {
               onClick={scheduleEmail}
               disabled={loading}
             >
-              {loading ? "Scheduling..." : "Schedule Email"}
+              {loading
+                ? "Scheduling..."
+                : "Schedule Email"}
             </button>
 
             {message && (
@@ -262,7 +443,9 @@ function App() {
           <div className="card-header">
             <div>
               <h2>Recent Email Jobs</h2>
-              <p>Your latest scheduled email activity.</p>
+              <p>
+                Your latest scheduled email activity.
+              </p>
             </div>
           </div>
 
@@ -275,7 +458,8 @@ function App() {
               <div className="empty-icon">✉</div>
               <h3>No email jobs yet</h3>
               <p>
-                Schedule your first email using the form above.
+                Schedule your first email using the
+                form above.
               </p>
             </div>
           ) : (
@@ -297,7 +481,8 @@ function App() {
                     </div>
 
                     <p>
-                      <strong>To:</strong> {email.recipient}
+                      <strong>To:</strong>{" "}
+                      {email.recipient}
                     </p>
 
                     <p className="email-body">
@@ -305,13 +490,15 @@ function App() {
                     </p>
 
                     <small>
-                      Scheduled: {formatDate(email.scheduledAt)}
+                      Scheduled:{" "}
+                      {formatDate(email.scheduledAt)}
                     </small>
 
                     {email.sentAt && (
                       <small>
                         {" "}
-                        • Sent: {formatDate(email.sentAt)}
+                        • Sent:{" "}
+                        {formatDate(email.sentAt)}
                       </small>
                     )}
 
