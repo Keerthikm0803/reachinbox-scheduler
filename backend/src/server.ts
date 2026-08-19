@@ -1,10 +1,9 @@
+
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import { RedisStore } from "connect-redis";
 import passport from "./auth/google";
-import { redisConnection } from "./config/redis";
 
 import { scheduleEmail } from "./services/email.service";
 import { PrismaClient } from "@prisma/client";
@@ -13,9 +12,14 @@ import "./queues/email.worker";
 const prisma = new PrismaClient();
 
 const app = express();
+
 const FRONTEND_URL =
   process.env.FRONTEND_URL ||
   "http://localhost:5173";
+
+/* =========================
+   CORS
+========================= */
 
 app.use(
   cors({
@@ -26,24 +30,34 @@ app.use(
 
 app.use(express.json());
 
+/* =========================
+   SESSION
+========================= */
+
 app.use(
   session({
-    store: new RedisStore({
-      client: redisConnection,
-    }),
     secret:
       process.env.SESSION_SECRET ||
       "development-session-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: true,
+      secure:
+        process.env.NODE_ENV === "production",
       httpOnly: true,
-      sameSite: "none",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? "none"
+          : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );
+
+/* =========================
+   PASSPORT
+========================= */
+
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -72,12 +86,17 @@ app.get(
 app.get(
   "/api/auth/google/callback",
   passport.authenticate("google", {
-    failureRedirect: `${FRONTEND_URL}/?login=failed`,
+    failureRedirect:
+      `${FRONTEND_URL}/?login=failed`,
   }),
   (_req, res) => {
     res.redirect(FRONTEND_URL);
   }
 );
+
+/* =========================
+   CURRENT USER
+========================= */
 
 app.get("/api/auth/me", (req, res) => {
   if (!req.isAuthenticated()) {
@@ -92,6 +111,10 @@ app.get("/api/auth/me", (req, res) => {
     user: req.user,
   });
 });
+
+/* =========================
+   LOGOUT
+========================= */
 
 app.post("/api/auth/logout", (req, res) => {
   req.logout((error) => {
@@ -124,72 +147,97 @@ app.post("/api/auth/logout", (req, res) => {
    EMAIL SCHEDULING
 ========================= */
 
-app.post("/api/emails/schedule", async (req, res) => {
-  try {
-    const {
-      recipient,
-      subject,
-      body,
-      scheduledAt,
-      senderId,
-    } = req.body;
+app.post(
+  "/api/emails/schedule",
+  async (req, res) => {
+    try {
+      const {
+        recipient,
+        subject,
+        body,
+        scheduledAt,
+        senderId,
+      } = req.body;
 
-    if (
-      !recipient ||
-      !subject ||
-      !body ||
-      !scheduledAt ||
-      !senderId
-    ) {
-      return res.status(400).json({
+      if (
+        !recipient ||
+        !subject ||
+        !body ||
+        !scheduledAt ||
+        !senderId
+      ) {
+        return res.status(400).json({
+          message:
+            "recipient, subject, body, scheduledAt and senderId are required",
+        });
+      }
+
+      const scheduledDate =
+        new Date(scheduledAt);
+
+      if (
+        Number.isNaN(
+          scheduledDate.getTime()
+        )
+      ) {
+        return res.status(400).json({
+          message:
+            "Invalid scheduledAt date",
+        });
+      }
+
+      if (
+        scheduledDate.getTime() <=
+        Date.now()
+      ) {
+        return res.status(400).json({
+          message:
+            "scheduledAt must be in the future",
+        });
+      }
+
+      const email = await scheduleEmail({
+        recipient,
+        subject,
+        body,
+        scheduledAt: scheduledDate,
+        senderId,
+      });
+
+      return res.status(201).json({
         message:
-          "recipient, subject, body, scheduledAt and senderId are required",
+          "Email scheduled successfully",
+        email,
+      });
+    } catch (error) {
+      console.error(
+        "Schedule email error:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to schedule email",
       });
     }
-
-    const scheduledDate = new Date(scheduledAt);
-
-    if (Number.isNaN(scheduledDate.getTime())) {
-      return res.status(400).json({
-        message: "Invalid scheduledAt date",
-      });
-    }
-
-    if (scheduledDate.getTime() <= Date.now()) {
-      return res.status(400).json({
-        message: "scheduledAt must be in the future",
-      });
-    }
-
-    const email = await scheduleEmail({
-      recipient,
-      subject,
-      body,
-      scheduledAt: scheduledDate,
-      senderId,
-    });
-
-    return res.status(201).json({
-      message: "Email scheduled successfully",
-      email,
-    });
-  } catch (error) {
-    console.error("Schedule email error:", error);
-
-    return res.status(500).json({
-      message: "Failed to schedule email",
-    });
   }
-});
+);
 
 /* =========================
    EMAIL DASHBOARD
 ========================= */
 
-app.get("/api/emails", async (_req, res) => {
-  try {
-    const [emails, total, scheduled, sent, failed] =
-      await Promise.all([
+app.get(
+  "/api/emails",
+  async (_req, res) => {
+    try {
+      const [
+        emails,
+        total,
+        scheduled,
+        sent,
+        failed,
+      ] = await Promise.all([
         prisma.email.findMany({
           orderBy: {
             createdAt: "desc",
@@ -221,32 +269,43 @@ app.get("/api/emails", async (_req, res) => {
         }),
       ]);
 
-    res.json({
-      stats: {
-        total,
-        scheduled,
-        sent,
-        failed,
-      },
-      emails,
-    });
-  } catch (error) {
-    console.error("Fetch emails error:", error);
+      return res.json({
+        stats: {
+          total,
+          scheduled,
+          sent,
+          failed,
+        },
+        emails,
+      });
+    } catch (error) {
+      console.error(
+        "Fetch emails error:",
+        error
+      );
 
-    res.status(500).json({
-      message: "Failed to fetch emails",
-    });
+      return res.status(500).json({
+        message:
+          "Failed to fetch emails",
+      });
+    }
   }
-});
+);
 
 /* =========================
    START SERVER
 ========================= */
 
-const PORT = Number(process.env.PORT || 5000);
+const PORT = Number(
+  process.env.PORT || 5000
+);
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `Backend server running on port ${PORT}`
-  );
-});
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `Backend server running on port ${PORT}`
+    );
+  }
+);

@@ -16,7 +16,6 @@
     "@prisma/client": "^6.19.3",
     "@types/node": "^26.2.0",
     "bullmq": "^6.1.2",
-    "connect-redis": "^10.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
